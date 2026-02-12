@@ -244,18 +244,43 @@ Requires `pico8-documentation-file' to be set."
           pico8--builtins)
   nil)
 
+;; (defun pico8--modified-lua-font-lock ()
+;;   "Return a modified lua-font-lock.
+;; Where lua built-ins are removed and replaced with pico8 builtins."
+;;   (let ((without-builtins
+;;         (seq-filter
+;;          (lambda (x)
+;;            (let ((re (car-safe x)))
+;;              (not (and (stringp re)
+;;                        (string-match-p "loadstring" re)))))
+;;          lua-font-lock-keywords)))
+;;     (append `((,pico8--builtins-regex 1 font-lock-builtin-face))
+;;             without-builtins)))
+
 (defun pico8--modified-lua-font-lock ()
-  "Return a modified lua-font-lock.
-Where lua built-ins are removed and replaced with pico8 builtins."
-  (let ((without-builtins
-        (seq-filter
-         (lambda (x)
-           (let ((re (car-safe x)))
-             (not (and (stringp re)
-                       (string-match-p "loadstring" re)))))
-         lua-font-lock-keywords)))
-    (append `((,pico8--builtins-regex 1 font-lock-builtin-face))
-            without-builtins)))
+  "Return a modified `lua-font-lock-keywords'.
+
+- Remove the Lua builtin rule that matches `loadstring' (so PICO-8 can redefine it).
+- Add PICO-8 builtins as `font-lock-builtin-face'.
+- Add number highlighting as `font-lock-constant-face'."
+  (let* ((without-builtins
+          (seq-filter
+           (lambda (x)
+             (let ((re (car-safe x)))
+               (not (and (stringp re)
+                         (string-match-p "loadstring" re)))))
+           lua-font-lock-keywords))
+         ;; PICO-8/Lua-ish numbers: hex, int, float (.5 and 0.5 both)
+         (pico8--number-regex
+          "\\_<\\(?:0[xX][0-9a-fA-F]+\\|[0-9]+\\(?:\\.[0-9]+\\)?\\|\\.[0-9]+\\)\\_>"))
+    ;; Prepend our rules so they take precedence.
+    (append
+     `(
+       ;; Builtins (group 1 is the builtin symbol).
+       (,pico8--builtins-regex 1 font-lock-builtin-face)
+       ;; Numbers.
+       (,pico8--number-regex . font-lock-constant-face))
+     without-builtins)))
 
 ;; Adapted from lua-mode.el (lua-send-defun)
 (defun pico8--lua-function-bounds ()
