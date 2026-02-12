@@ -198,16 +198,12 @@ Enables documentation annotations with eldoc and company"
   (seq-map (lambda (x) (apply #'pico8--make-builtin x)) pico8--builtins-list))
 
 (defconst pico8--builtins-symbols
-  (seq-map (lambda (s) (plist-get s :symbol)) pico8--builtins))
+  (seq-map #'pico8-symbol-symbol pico8--builtins))
 
-;; based on lua-mode.el
 (defconst pico8--builtins-regex
-  (concat
-   "\\(?:^\\|[^:. \t]\\|[.][.]\\)[ \t]*\\(?:"
-   (mapconcat (lambda (x)
-                (concat "\\(?1:\\_<" x "\\_>\\)"))
-              pico8--builtins-symbols "\\|")
-   "\\)"))
+  (concat "\\_<"
+          (regexp-opt pico8--builtins-symbols t)
+          "\\_>"))
 
 (defun pico8--has-documentation-p ()
   "Is pico8-documentation-file set and does the file exits?"
@@ -253,9 +249,12 @@ Requires `pico8-documentation-file' to be set."
 Where lua built-ins are removed and replaced with pico8 builtins."
   (let ((without-builtins
         (seq-filter
-         (lambda (x) (not (string-match ".*loadstring.*" (car x))))
+         (lambda (x)
+           (let ((re (car-safe x)))
+             (not (and (stringp re)
+                       (string-match-p "loadstring" re)))))
          lua-font-lock-keywords)))
-    (append `((,pico8--builtins-regex . font-lock-builtin-face))
+    (append `((,pico8--builtins-regex 1 font-lock-builtin-face))
             without-builtins)))
 
 ;; Adapted from lua-mode.el (lua-send-defun)
@@ -623,6 +622,7 @@ region."
 (define-derived-mode pico8-mode lua-mode "pico8"
   "pico8 major mode."
   (setq-local lua-font-lock-keywords (pico8--modified-lua-font-lock))
+  (font-lock-refresh-defaults)
   (add-to-list 'xref-backend-functions #'xref-pico8-backend)
   (add-to-list 'completion-at-point-functions #'pico8--completion-at-point)
   (setq-local eldoc-documentation-function #'pico8--eldoc-documentation)
